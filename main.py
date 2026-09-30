@@ -75,7 +75,17 @@ class CaptchaModal(Modal):
         else:
             await interaction.response.send_message("Code incorrect. Reclique sur le bouton pour réessayer.", ephemeral=True)
 
-# --- VUES (BOUTONS) ---
+# --- VUE AVEC BOUTON POUR OUVRIR LE MODAL ---
+class CaptchaInputView(View):
+    def __init__(self, correct_code):
+        super().__init__(timeout=180)
+        self.correct_code = correct_code
+
+    @discord.ui.button(label="Entrer le code", style=discord.ButtonStyle.blurple, emoji="✏️")
+    async def open_modal(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_modal(CaptchaModal(correct_code=self.correct_code))
+
+# --- VUES (BOUTONS PRINCIPAUX) ---
 class VerifyView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -90,8 +100,12 @@ class VerifyView(View):
         code, image_buffer = generate_captcha()
         file = discord.File(image_buffer, filename="captcha.png")
         
-        await interaction.response.send_message("Regarde le code ci-dessous et entre-le dans la fenêtre :", file=file, ephemeral=True)
-        await interaction.followup.send_modal(CaptchaModal(correct_code=code))
+        await interaction.response.send_message(
+            content="Regarde l'image ci-dessous puis clique sur **Entrer le code** :", 
+            file=file, 
+            view=CaptchaInputView(correct_code=code),
+            ephemeral=True
+        )
 
 class TicketCloseView(View):
     def __init__(self):
