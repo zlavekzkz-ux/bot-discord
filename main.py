@@ -2,12 +2,13 @@ import os
 import discord
 from discord.ext import commands, tasks
 from discord.ui import Button, View
+import datetime
 
-# --- CONFIGURATION (Remplace les IDs ci-dessous par les tiens) ---
-MEMBERS_CHANNEL_ID = 123456789012345678  # ID du salon vocal Membres
-BOTS_CHANNEL_ID = 123456789012345678     # ID du salon vocal Bots
-VERIFIED_ROLE_ID = 123456789012345678    # ID du rôle donné à la vérification
-TICKET_CATEGORY_ID = 123456789012345678  # ID de la catégorie où créer les tickets
+# --- CONFIGURATION AVEC TES IDS ---
+MEMBERS_CHANNEL_ID = 1554876901099700255  # Salon vocal Membres
+BOTS_CHANNEL_ID = 1554876945227972608     # Salon vocal Bots
+VERIFIED_ROLE_ID = 1554878361988235344    # Rôle Vérifié
+TICKET_CATEGORY_ID = 1554897903020146740  # Catégorie des Tickets
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -96,7 +97,7 @@ async def on_ready():
     if not update_stats.is_running():
         update_stats.start()
 
-# --- COMMANDES POUR DÉPLOYER LES PANNEAUX ---
+# --- COMMANDES DE CONFIGURATION ---
 
 @bot.command()
 @commands.has_permissions(administrator=True)
