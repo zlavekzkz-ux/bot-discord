@@ -3,6 +3,20 @@ import discord
 from discord.ext import commands, tasks
 from discord.ui import Button, View
 import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+# --- MINI SERVEUR POUR GARDER RENDER HEUREUX ---
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
 
 # --- CONFIGURATION AVEC TES IDS ---
 MEMBERS_CHANNEL_ID = 1554876901099700255  # Salon vocal Membres
@@ -118,6 +132,9 @@ async def setup_ticket(ctx):
         color=discord.Color.blurple()
     )
     await ctx.send(embed=embed, view=TicketView())
+
+# Démarrage du serveur web secondaire
+threading.Thread(target=run_web_server, daemon=True).start()
 
 token = os.getenv("DISCORD_TOKEN")
 if token:
