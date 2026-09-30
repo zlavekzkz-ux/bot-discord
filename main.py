@@ -6,23 +6,23 @@ import datetime
 import random
 import string
 import io
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# --- MINI SERVEUR POUR RENDER ---
+# --- MINI SERVEUR POUR KEEP-ALIVE RENDER ---
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is running!")
+        self.wfile.write(b"Bot OK")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- CONFIGURATION ---
+# --- CONFIGURATION DES IDS ---
 MEMBERS_CHANNEL_ID = 1554876901099700255
 BOTS_CHANNEL_ID = 1554876945227972608
 VERIFIED_ROLE_ID = 1554878361988235344
@@ -37,31 +37,31 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # --- GÉNÉRATEUR DE CAPTCHA VISUEL ---
 def generate_captcha():
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-    img = Image.new('RGB', (200, 70), color=(30, 30, 30))
+    img = Image.new('RGB', (200, 70), color=(35, 39, 42))
     draw = ImageDraw.Draw(img)
 
-    # Ajouter du bruit (lignes aléatoires)
-    for _ in range(5):
+    for _ in range(6):
         x1, y1 = random.randint(0, 200), random.randint(0, 70)
         x2, y2 = random.randint(0, 200), random.randint(0, 70)
-        draw.line([(x1, y1), (x2, y2)], fill=(100, 100, 100), width=2)
+        draw.line([(x1, y1), (x2, y2)], fill=(114, 137, 218), width=2)
 
-    # Écrire le texte
-    draw.text((30, 20), code, fill=(255, 255, 255))
+    draw.text((35, 25), code, fill=(255, 255, 255))
 
-    # Sauvegarder dans un buffer
     buffer = io.BytesIO()
     img.save(buffer, format='PNG')
     buffer.seek(0)
-    
     return code, buffer
 
-# --- MODAL POUR ENTRER LE CODE ---
+# --- FENÊTRE D'ENTRÉE DU CODE ---
 class CaptchaModal(Modal):
     def __init__(self, correct_code):
         super().__init__(title="Vérification Captcha")
         self.correct_code = correct_code
-        self.code_input = TextInput(label="Entre le code affiché sur l'image :", placeholder="EX: 8X2A9", max_length=5)
+        self.code_input = TextInput(
+            label="Recopie le code de l'image :", 
+            placeholder="EX: A1B2C", 
+            max_length=5
+        )
         self.add_item(self.code_input)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -69,13 +69,13 @@ class CaptchaModal(Modal):
             role = interaction.guild.get_role(VERIFIED_ROLE_ID)
             if role:
                 await interaction.user.add_roles(role)
-                await interaction.response.send_message("Code correct ! Tu as été vérifié avec succès. 🎉", ephemeral=True)
+                await interaction.response.send_message("Accès validé ! Tu as reçu le rôle. 🎉", ephemeral=True)
             else:
-                await interaction.response.send_message("Erreur : Rôle introuvable.", ephemeral=True)
+                await interaction.response.send_message("Erreur : Rôle introuvable sur le serveur.", ephemeral=True)
         else:
-            await interaction.response.send_message("Code incorrect ! Réessaie en re-cliquant sur le bouton.", ephemeral=True)
+            await interaction.response.send_message("Code incorrect. Reclique sur le bouton pour réessayer.", ephemeral=True)
 
-# --- VUES INTERACTIVES ---
+# --- VUES (BOUTONS) ---
 class VerifyView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -83,15 +83,14 @@ class VerifyView(View):
     @discord.ui.button(label="S'inscrire / Se vérifier", style=discord.ButtonStyle.green, custom_id="verify_btn")
     async def verify_button(self, interaction: discord.Interaction, button: Button):
         role = interaction.guild.get_role(VERIFIED_ROLE_ID)
-        if role in interaction.user.roles:
+        if role and role in interaction.user.roles:
             await interaction.response.send_message("Tu es déjà vérifié !", ephemeral=True)
             return
 
         code, image_buffer = generate_captcha()
         file = discord.File(image_buffer, filename="captcha.png")
         
-        # Envoie l'image et ouvre le formulaire modal
-        await interaction.response.send_message("Recopie le code présent sur l'image :", file=file, ephemeral=True)
+        await interaction.response.send_message("Regarde le code ci-dessous et entre-le dans la fenêtre :", file=file, ephemeral=True)
         await interaction.followup.send_modal(CaptchaModal(correct_code=code))
 
 class TicketCloseView(View):
@@ -100,8 +99,8 @@ class TicketCloseView(View):
 
     @discord.ui.button(label="Fermer le ticket", style=discord.ButtonStyle.red, custom_id="close_ticket_btn")
     async def close_button(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Fermeture du ticket dans 5 secondes...")
-        await discord.utils.sleep_until(discord.utils.utcnow() + datetime.timedelta(seconds=5))
+        await interaction.response.send_message("Fermeture du ticket...")
+        await discord.utils.sleep_until(discord.utils.utcnow() + datetime.timedelta(seconds=3))
         await interaction.channel.delete()
 
 class TicketView(View):
@@ -126,18 +125,18 @@ class TicketView(View):
         
         embed = discord.Embed(
             title="Ticket Ouvert",
-            description=f"Bonjour {interaction.user.mention}, explique ton problème ici.",
+            description=f"Bonjour {interaction.user.mention}, décris ton problème ici.",
             color=discord.Color.blue()
         )
         await channel.send(embed=embed, view=TicketCloseView())
         await interaction.response.send_message(f"Ton ticket a été créé : {channel.mention}", ephemeral=True)
 
-# --- TÂCHES DE FOND ET ÉVÉNEMENTS ---
+# --- ÉVÉNEMENTS & TÂCHES ---
 @tasks.loop(minutes=10)
 async def update_stats():
     for guild in bot.guilds:
-        members_count = sum(1 for member in guild.members if not member.bot)
-        bots_count = sum(1 for member in guild.members if member.bot)
+        members_count = sum(1 for m in guild.members if not m.bot)
+        bots_count = sum(1 for m in guild.members if m.bot)
         
         members_channel = guild.get_channel(MEMBERS_CHANNEL_ID)
         bots_channel = guild.get_channel(BOTS_CHANNEL_ID)
@@ -162,7 +161,7 @@ async def on_ready():
 async def setup_verify(ctx):
     embed = discord.Embed(
         title="Vérification",
-        description="Clique sur le bouton ci-dessous pour lancer la vérification CAPTCHA.",
+        description="Clique sur le bouton ci-dessous pour démarrer la vérification.",
         color=discord.Color.green()
     )
     await ctx.send(embed=embed, view=VerifyView())
@@ -171,8 +170,8 @@ async def setup_verify(ctx):
 @commands.has_permissions(administrator=True)
 async def setup_ticket(ctx):
     embed = discord.Embed(
-        title="Support & Tickets",
-        description="Besoin d'aide ? Clique sur le bouton ci-dessous pour ouvrir un ticket.",
+        title="Support",
+        description="Clique ci-dessous pour ouvrir un ticket.",
         color=discord.Color.blurple()
     )
     await ctx.send(embed=embed, view=TicketView())
@@ -182,5 +181,3 @@ threading.Thread(target=run_web_server, daemon=True).start()
 token = os.getenv("DISCORD_TOKEN")
 if token:
     bot.run(token)
-else:
-    print("Erreur : Aucun token trouvé.")
