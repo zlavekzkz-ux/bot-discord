@@ -27,6 +27,7 @@ MEMBERS_CHANNEL_ID = 1554876901099700255
 BOTS_CHANNEL_ID = 1554876945227972608
 VERIFIED_ROLE_ID = 1554878361988235344
 TICKET_CATEGORY_ID = 1554871964848619541
+TICKET_STAFF_ROLE_ID = 1554877772789456976
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -124,6 +125,7 @@ class TicketView(View):
     @discord.ui.button(label="Créer un ticket", style=discord.ButtonStyle.blurple, emoji="📩", custom_id="create_ticket_btn")
     async def create_ticket(self, interaction: discord.Interaction, button: Button):
         category = interaction.guild.get_channel(TICKET_CATEGORY_ID)
+        staff_role = interaction.guild.get_role(TICKET_STAFF_ROLE_ID)
         
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -131,6 +133,9 @@ class TicketView(View):
             interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
         
+        if staff_role:
+            overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+
         channel = await interaction.guild.create_text_channel(
             name=f"ticket-{interaction.user.name}",
             category=category,
